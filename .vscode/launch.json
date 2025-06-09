@@ -1,6 +1,7 @@
 {
   "version": "0.2.0",
   "configurations": [
+    
     {
       "name": "C/C++ Runner: Debug Session",
       "type": "cppdbg",
@@ -9,7 +10,7 @@
       "stopAtEntry": false,
       "externalConsole": true,
       "cwd": "c:/Users/AndersonSimioni/Desktop/codigo_c++/codigo_c++",
-      "program": "c:/Users/AndersonSimioni/Desktop/codigo_c++/codigo_c++/build/Debug/outDebug",
+      "program": "c:/Users/AndersonSimioni/Desktop/codigo_c++/codigo_c++/virtmem",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [
