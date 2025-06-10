@@ -8,6 +8,9 @@
 using namespace std;
 
 extern char* algorithm;
+extern int page_faults;//Page faults: XX
+extern int disk_reads;//Disk reads: XX
+extern int disk_writes;//Disk writes: XX
 
 class Page_Replacement
 {

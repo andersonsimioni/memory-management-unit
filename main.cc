@@ -43,5 +43,10 @@ int main(int argc, char *argv[])
 
     pt.page_table_delete();
 	disk.close_disk();
+
+	cout<<"Page faults: "<<page_faults<<endl;
+	cout<<"Disk reads:"<<disk_reads<<endl;
+	cout<<"Disk writes: "<<disk_writes<<endl;
+
 	return 0;
 }

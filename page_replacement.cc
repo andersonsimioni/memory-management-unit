@@ -12,6 +12,9 @@
 #include <unordered_map>
 
 extern char* algorithm = "fifo";
+extern int page_faults = 0;//Page faults: XX
+extern int disk_reads = 0;//Disk reads: XX
+extern int disk_writes = 0;//Disk writes: XX
 
 static bool use_disk = true; //true to use or false to not use the disk
 static Disk* disk = nullptr; //disk to save page data and protection bits
@@ -36,6 +39,7 @@ void save_page_on_disk(Page_Table *pt, int page, int* old_frame, int* old_bits) 
 
     char* physmem = (char*)pt->page_table_get_physmem();
     disk->write(page, physmem);
+    disk_writes++;
 
     //unlink page from frame
     pt->page_table_set_entry(page, *old_frame, 0);
@@ -53,6 +57,7 @@ void load_page_from_disk(Page_Table *pt, int page, int frame_to_use) {
     
     char* physmem = (char*)pt->page_table_get_physmem();
     disk->read(page, physmem); //1:1 -> 1 page = 1 block to simplify..
+    disk_reads++;
 
     // map page again
     cout<<"(FROM DISK) mapping page "<<page<<" to frame "<<frame_to_use<<endl;
@@ -70,6 +75,7 @@ void Page_Replacement::page_fault_handler(Page_Table *pt, int page)
         cout << "disk started successfully!" << endl;
     }
 
+    page_faults++;
     cout << "page fault on page #" << page << endl;
     cout << "using algorithm " << algorithm << " to solve"<<endl;
 
