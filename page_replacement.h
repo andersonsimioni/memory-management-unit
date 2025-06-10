@@ -7,6 +7,8 @@
 
 using namespace std;
 
+extern char* algorithm;
+
 class Page_Replacement
 {
 public:

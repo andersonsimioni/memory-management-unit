@@ -1,39 +1,27 @@
+#include "disk.h"
 #include "page_replacement.h"
+
 #include <vector>
 #include <queue>
 #include <cstring>
 #include <cassert>
 #include <list>
 #include <cstdlib>
-#include <unordered_map>
 #include <ctime>
-#include "disk.h"
+#include <stdlib.h>
+#include <unordered_map>
 
-// this is a pointer to the disk we use to save metadata like protection bits
-static bool use_disk = true;
-static Disk* disk = nullptr;
+extern char* algorithm = "fifo";
 
-// this queue is for FIFO algorithm, it keeps track of the order pages entered memory
-static std::queue<int> page_queue;
+static bool use_disk = true; //true to use or false to not use the disk
+static Disk* disk = nullptr; //disk to save page data and protection bits
 
-// this vector holds all pages currently in memory for RANDOM and CUSTOM algorithms
-static std::vector<int> page_list;
+static std::queue<int> page_queue; //used for FIFO
+static std::vector<int> page_list; //used for RANDOM & CUSTOM
+static std::vector<bool> frame_free_status; //set if frame are in using
+static std::vector<int> protection_bits; //backup for protection bits
 
-// this vector keeps info about which frames are still free and which are used
-static std::vector<bool> frame_free_status;
-
-// we define the types of page replacement algorithms we support
-enum algorithm_enum
-{
-    FIFO,   // first page in will be the first out (simple)
-    RANDOM, // remove a random page, no logic just chance
-    CUSTOM  // a custom logic based on protection bits of the page
-};
-
-// we choose which algorithm to use here
-const algorithm_enum algorithm = FIFO;
-
-//save phys memory page into disk to replace the page with backup
+//save data and protection bits into disk, if use_disk is true..
 void save_page_on_disk(Page_Table *pt, int page, int* old_frame, int* old_bits) {
     if (disk == nullptr) 
     {
@@ -46,19 +34,15 @@ void save_page_on_disk(Page_Table *pt, int page, int* old_frame, int* old_bits) 
     cout<<"clearing & saving page "<<page<<" on disk "<<endl;
     pt->page_table_get_entry(page, old_frame, old_bits); 
 
-    char buffer[disk->DISK_BLOCK_SIZE];
     char* physmem = (char*)pt->page_table_get_physmem();
-    memcpy(buffer, physmem, disk->DISK_BLOCK_SIZE);
-    buffer[disk->DISK_BLOCK_SIZE-1] = (char)*old_bits;
-
-    disk->write(page, buffer);
+    disk->write(page, physmem);
 
     //unlink page from frame
     pt->page_table_set_entry(page, *old_frame, 0);
 }
 
 
-//load phys memory page from disk
+//load data and protection bits from disk
 void load_page_from_disk(Page_Table *pt, int page, int frame_to_use) {
     if (disk == nullptr) 
     {
@@ -67,41 +51,27 @@ void load_page_from_disk(Page_Table *pt, int page, int frame_to_use) {
         return;
     }
     
-    int page_size = pt->PAGE_SIZE + 1; //+1 for protection bits
-    char buffer[page_size];
-    disk->read(page, buffer); //1:1 -> 1 page = 1 block to simplify..
-
-    int protection_bits = buffer[pt->PAGE_SIZE - 1]; // last byte of block
-    if(protection_bits == 0) protection_bits = PROT_READ | PROT_WRITE;
-    char data[pt->PAGE_SIZE];
-    
     char* physmem = (char*)pt->page_table_get_physmem();
-    memcpy(physmem, buffer, pt->PAGE_SIZE);
+    disk->read(page, physmem); //1:1 -> 1 page = 1 block to simplify..
 
     // map page again
     cout<<"(FROM DISK) mapping page "<<page<<" to frame "<<frame_to_use<<endl;
-    pt->page_table_set_entry(page, frame_to_use, protection_bits);
+    pt->page_table_set_entry(page, frame_to_use, PROT_READ | PROT_WRITE);
 }
 
 
 // this is the page fault handler, it runs when the system tries to use a page that is not in memory
 void Page_Replacement::page_fault_handler(Page_Table *pt, int page)
 {    
-    
     if(disk == nullptr && use_disk)//start disk with not started yet and use disk
     {
         cout << "initializing disk..." << endl;
-
-        Disk sample("", 0); //just to get block size...
-
-        int total_pages = pt->page_table_get_npages(); // how many pages are in the system
-        int blocks = (total_pages * (pt->PAGE_SIZE + 1)) / sample.DISK_BLOCK_SIZE; // blocks for page data, +1 page size (PROT_..)
-        disk = new Disk("myvirtualdisk", blocks); // create the actual disk
-
+        disk = new Disk("myvirtualdisk", pt->page_table_get_npages()); // open the current disk
         cout << "disk started successfully!" << endl;
     }
 
     cout << "page fault on page #" << page << endl;
+    cout << "using algorithm " << algorithm << " to solve"<<endl;
 
     const int nframes = pt->page_table_get_nframes(); // how many frames we got in RAM
     const int npages  = pt->page_table_get_npages();  // total pages the system can handle
@@ -120,7 +90,7 @@ void Page_Replacement::page_fault_handler(Page_Table *pt, int page)
     }
     
     int old_frame = -1, old_bits = -1;
-    if(algorithm == CUSTOM)
+    if(strcmp(algorithm, "custom"))
     {
         // in custom algorithm, we try to remove the page with lowest "importance"
         // we decide importance by looking at the protection flags (read/write)
@@ -157,7 +127,7 @@ void Page_Replacement::page_fault_handler(Page_Table *pt, int page)
 
         page_list.push_back(page); // add the new page we just loaded
     }
-    else if(algorithm == RANDOM)
+    else if(strcmp(algorithm, "rand"))
     {
         if (frame_to_use == -1)
         {
@@ -175,7 +145,7 @@ void Page_Replacement::page_fault_handler(Page_Table *pt, int page)
             page_list.push_back(page); // if frame was free, just add the page normally
         }
     }
-    else if(algorithm == FIFO)
+    else if(strcmp(algorithm, "fifo"))
     {
         if(frame_to_use == -1 && !page_queue.empty())
         {

@@ -15,6 +15,8 @@ int main(int argc, char *argv[])
 	int nframes = atoi(argv[2]);
 	const char *program = argv[4];
 
+	algorithm = (argv[3]);
+
 	Disk disk("myvirtualdisk", npages);
     Program my_program;
 
