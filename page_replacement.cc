@@ -159,6 +159,10 @@ void Page_Replacement::page_fault_handler_non_static(Page_Table *pt, int page)
 
         page_queue.push(page); // add our new page to the end of the queue
     }
+    else
+    {
+        throw std::runtime_error("invalid algorithm");
+    }
 
     load_page(pt, page, frame_to_use);
 }

@@ -10,10 +10,12 @@ int main(int argc, char *argv[])
 		printf("use: virtmem <npages> <nframes> <rand|fifo|custom> <alpha|beta|gamma|delta>\n");
 		return 1;
 	}
-
+	
 	int npages = atoi(argv[1]);
 	int nframes = atoi(argv[2]);
 	const char *program = argv[4];
+
+	if(npages <=0 || nframes <= 0) throw std::runtime_error("invalid npages or nframes");
 
 	Disk disk("myvirtualdisk", npages);
     Program my_program;
