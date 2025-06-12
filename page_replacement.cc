@@ -37,25 +37,38 @@ void Page_Replacement::swap_page_frames(Page_Table *pt, int old_page, int new_pa
     disk_reads++;
 
     frame_to_page_map[old_page_frame] = new_page;
-    pt->page_table_set_entry(new_page, old_page_frame, PROT_READ | PROT_WRITE);
+    pt->page_table_set_entry(new_page, old_page_frame, PROT_READ);
     pt->page_table_set_entry(old_page, 0, 0);
 }
 
 // this is the page fault handler, it runs when the system tries to use a page that is not in memory
 void Page_Replacement::page_fault_handler_non_static(Page_Table *pt, int page)
 {    
-    pt->page_table_print();
+    //pt->page_table_print();
     //abort();
 
-    cout << "page fault on page #" << page << endl;
     page_faults++;
-
+    cout << "page fault on page #" << page << endl;
+    
     int old_page;
     const int nframes = pt->page_table_get_nframes();
     const int npages  = pt->page_table_get_npages();
 
     if(frame_to_page_map.size() != nframes) frame_to_page_map.resize(nframes, -1);
     if(page_list.size() != npages) page_list.resize(npages, -1);
+
+    for (int i = 0; i < frame_to_page_map.size(); i++)
+    {
+        if(frame_to_page_map[i] == page)
+        {
+            cout<<"frame already mapped!"<<endl;
+            int aux_frame, aux_bits;
+            pt->page_table_get_entry(page, &aux_frame, &aux_bits);
+            pt->page_table_set_entry(page, aux_frame, PROT_READ | PROT_WRITE);
+            return;
+        }
+    }
+    
 
     // search for a free frame
     int frame_to_use = -1;
@@ -109,14 +122,8 @@ void Page_Replacement::page_fault_handler_non_static(Page_Table *pt, int page)
         abort();
     }
 
-    if(frame_to_use == -1)
-    {
-        swap_page_frames(pt, old_page, page);
-    }
-    else
-    {
-        pt->page_table_set_entry(page, frame_to_use, PROT_READ | PROT_WRITE);
-    }
+    if(frame_to_use == -1) swap_page_frames(pt, old_page, page);
+    else pt->page_table_set_entry(page, frame_to_use, PROT_READ);
     
     cout<<"page fault fixed"<<endl;
 }
