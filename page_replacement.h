@@ -4,6 +4,15 @@
 #include "page_table.h"
 
 #include <iostream>
+#include <vector>
+#include <queue>
+#include <cstring>
+#include <cassert>
+#include <list>
+#include <cstdlib>
+#include <ctime>
+#include <stdlib.h>
+#include <unordered_map>
 
 using namespace std;
 
