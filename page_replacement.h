@@ -19,12 +19,13 @@ using namespace std;
 class Page_Replacement
 {
 private:
+    static Page_Replacement* singleton_instance;
+    Disk* disk = nullptr; //disk to save page data and protection bits
+
     char* algorithm;
     int page_faults;
     int disk_reads;
     int disk_writes;
-
-    Disk* disk = nullptr; //disk to save page data and protection bits
 
     std::queue<int> page_queue; //used for FIFO
     std::vector<int> page_list; //used for RANDOM & CUSTOM
@@ -34,7 +35,11 @@ public:
     /*
      * This this the method called when a page fault occurs. Your work begins here!
      */
-    void page_fault_handler(Page_Table *pt, int page);
+    static void page_fault_handler(Page_Table *pt, int page);
+
+    static Page_Replacement* get_instance();
+
+    void page_fault_handler_non_static(Page_Table *pt, int page);
 
     void print_statistics();
 
@@ -44,8 +49,11 @@ public:
 
     Page_Replacement(char* algorithm, Disk* disk)
     {
+        if(singleton_instance != nullptr) throw std::runtime_error("Page_Replacement already instanced!");
+        
         this->algorithm = algorithm;
         this->disk = disk;
+        singleton_instance = this;
     }
 };
 

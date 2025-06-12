@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <unordered_map>
 
+Page_Replacement* Page_Replacement::singleton_instance = nullptr;
+
 void Page_Replacement::print_statistics()
 {
     cout<<"Page faults: "<<page_faults<<endl;
@@ -40,7 +42,6 @@ void Page_Replacement::unload_page(Page_Table *pt, int page, int* old_frame, int
     frame_free_status[*old_frame] = true;
 }
 
-
 //load data and protection bits from disk
 void Page_Replacement::load_page(Page_Table *pt, int page, int frame_to_use) {
     if (disk == nullptr) 
@@ -61,7 +62,7 @@ void Page_Replacement::load_page(Page_Table *pt, int page, int frame_to_use) {
 }
 
 // this is the page fault handler, it runs when the system tries to use a page that is not in memory
-void Page_Replacement::page_fault_handler(Page_Table *pt, int page)
+void Page_Replacement::page_fault_handler_non_static(Page_Table *pt, int page)
 {    
     page_faults++;
     cout << "page fault on page #" << page << endl;
@@ -160,4 +161,15 @@ void Page_Replacement::page_fault_handler(Page_Table *pt, int page)
     }
 
     load_page(pt, page, frame_to_use);
+}
+
+Page_Replacement* Page_Replacement::get_instance()
+{
+    return Page_Replacement::singleton_instance;
+}
+
+void Page_Replacement::page_fault_handler(Page_Table *pt, int page)
+{
+    Page_Replacement* instance = Page_Replacement::get_instance();
+    instance->page_fault_handler_non_static(pt, page);
 }
