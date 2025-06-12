@@ -64,8 +64,8 @@ void Page_Replacement::load_page(Page_Table *pt, int page, int frame_to_use) {
 // this is the page fault handler, it runs when the system tries to use a page that is not in memory
 void Page_Replacement::page_fault_handler_non_static(Page_Table *pt, int page)
 {    
-    page_faults++;
     cout << "page fault on page #" << page << endl;
+    page_faults++;
 
     const int nframes = pt->page_table_get_nframes(); // how many frames we got in RAM
     const int npages  = pt->page_table_get_npages();  // total pages the system can handle
