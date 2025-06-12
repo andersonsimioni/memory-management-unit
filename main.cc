@@ -13,14 +13,15 @@ int main(int argc, char *argv[])
 	
 	int npages = atoi(argv[1]);
 	int nframes = atoi(argv[2]);
+	const char *algorithm = argv[3];
 	const char *program = argv[4];
-
+	cout<<strlen(algorithm)<<endl;
 	if(npages <=0 || nframes <= 0) throw std::runtime_error("invalid npages or nframes");
 
 	Disk disk("myvirtualdisk", npages);
     Program my_program;
 	
-	Page_Replacement page_fault_manager(argv[3], &disk);
+	Page_Replacement page_fault_manager(algorithm, &disk);
     Page_Table pt(npages, nframes, Page_Replacement::page_fault_handler);
 	
 	unsigned char *virtmem = (unsigned char *) pt.page_table_get_virtmem();

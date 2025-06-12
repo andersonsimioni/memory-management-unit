@@ -29,7 +29,7 @@ private:
 
     std::queue<int> page_queue; //used for FIFO
     std::vector<int> page_list; //used for RANDOM & CUSTOM
-    std::vector<bool> frame_free_status; //set if frame are in using
+    std::vector<bool> frame_free_status; //set if frame are in usig
 
 public:
     /*
@@ -47,11 +47,21 @@ public:
 
     void load_page(Page_Table *pt, int page, int frame_to_use);
 
-    Page_Replacement(char* algorithm, Disk* disk)
+    void page_replacement_delete();
+
+    ~Page_Replacement()
+    {
+        get_instance()->page_replacement_delete();   
+    }
+
+    Page_Replacement(const char* algorithm, Disk* disk)
     {
         if(singleton_instance != nullptr) throw std::runtime_error("Page_Replacement already instanced!");
         
-        this->algorithm = algorithm;
+        int alg_name_len = strlen(algorithm);
+        this->algorithm = new char[alg_name_len];
+        memcpy(this->algorithm, algorithm, alg_name_len);
+
         this->disk = disk;
         singleton_instance = this;
     }

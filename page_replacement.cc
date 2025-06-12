@@ -177,3 +177,26 @@ void Page_Replacement::page_fault_handler(Page_Table *pt, int page)
     Page_Replacement* instance = Page_Replacement::get_instance();
     instance->page_fault_handler_non_static(pt, page);
 }
+
+void Page_Replacement::page_replacement_delete()
+{    
+    std::cout<<"clearing memory.."<<endl;
+
+    if (this->algorithm != nullptr) 
+    {
+        delete[] this->algorithm;
+        this->algorithm = nullptr;
+    }
+
+    while (!page_queue.empty()) page_queue.pop();
+    page_list.clear();
+    frame_free_status.clear();
+
+    page_faults = 0;
+    disk_reads = 0;
+    disk_writes = 0;
+
+    singleton_instance = nullptr;
+
+    cout<<"memory clean with success"<<endl;
+}
