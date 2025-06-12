@@ -61,7 +61,7 @@ void Page_Replacement::page_fault_handler_non_static(Page_Table *pt, int page)
     {
         if(frame_to_page_map[i] == page)
         {
-            cout<<"frame already mapped!"<<endl;
+            cout<<"frame already mapped, adding PROT_WRITE.."<<endl;
             int aux_frame, aux_bits;
             pt->page_table_get_entry(page, &aux_frame, &aux_bits);
             pt->page_table_set_entry(page, aux_frame, PROT_READ | PROT_WRITE);
