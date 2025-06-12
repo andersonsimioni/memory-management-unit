@@ -27,7 +27,8 @@ void Page_Replacement::unload_page(Page_Table *pt, int page, int* old_frame, int
     if(*old_frame > pt->page_table_get_nframes())
     {
         pt->page_table_print();
-        throw std::runtime_error("page table returned wrong value for frame");
+        cout<<("page table returned wrong value for frame")<<endl;
+        abort();
     }
 
     char* physmem = (char*)pt->page_table_get_physmem();
@@ -35,7 +36,7 @@ void Page_Replacement::unload_page(Page_Table *pt, int page, int* old_frame, int
     disk_writes++;
 
     //unlink page from frame
-    pt->page_table_set_entry(page, *old_frame, 0);
+    //pt->page_table_set_entry(page, *old_frame, 0);
     frame_to_page_map[*old_frame] = -1;
 }
 
@@ -49,6 +50,15 @@ void Page_Replacement::load_page(Page_Table *pt, int page, int frame_to_use) {
     cout<<"(FROM DISK) mapping page "<<page<<" to frame "<<frame_to_use<<endl;
     pt->page_table_set_entry(page, frame_to_use, PROT_READ | PROT_WRITE);
     frame_to_page_map[frame_to_use] = page;
+
+    //double check..
+    int chk_frame = -1, chk_bits = -1;
+    pt->page_table_get_entry(page, &chk_frame, &chk_bits);
+    if(chk_frame != frame_to_use)
+    {
+        cout<<"page table not respecting logic, frame_to_use: "<<frame_to_use<<", chk_frame: "<<chk_frame<<endl;
+        abort();
+    }
 }
 
 // this is the page fault handler, it runs when the system tries to use a page that is not in memory
@@ -126,7 +136,8 @@ void Page_Replacement::page_fault_handler_non_static(Page_Table *pt, int page)
     }
     else
     {
-        throw std::runtime_error("invalid algorithm");
+        cout<<"invalid algorithm"<<endl;
+        abort();
     }
 
     load_page(pt, page, frame_to_use);

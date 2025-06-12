@@ -16,7 +16,11 @@ int main(int argc, char *argv[])
 	const char *algorithm = argv[3];
 	const char *program = argv[4];
 	cout<<strlen(algorithm)<<endl;
-	if(npages <=0 || nframes <= 0) throw std::runtime_error("invalid npages or nframes");
+	if(npages <=0 || nframes <= 0)
+	{
+		cout<<"invalid npages or nframes"<<endl;
+		abort();
+	}
 
 	Disk disk("myvirtualdisk", npages);
     Program my_program;
@@ -45,7 +49,7 @@ int main(int argc, char *argv[])
 
     pt.page_table_delete();
 	disk.close_disk();
-	
+
 	page_fault_manager.get_instance()->page_replacement_delete();
 
 	return 0;
