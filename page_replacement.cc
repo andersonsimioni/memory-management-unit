@@ -11,20 +11,15 @@
 #include <stdlib.h>
 #include <unordered_map>
 
-extern char* algorithm = "fifo";
-extern int page_faults = 0;//Page faults: XX
-extern int disk_reads = 0;//Disk reads: XX
-extern int disk_writes = 0;//Disk writes: XX
-
-static bool use_disk = true; //true to use or false to not use the disk
-static Disk* disk = nullptr; //disk to save page data and protection bits
-
-static std::queue<int> page_queue; //used for FIFO
-static std::vector<int> page_list; //used for RANDOM & CUSTOM
-static std::vector<bool> frame_free_status; //set if frame are in using
+void Page_Replacement::print_statistics()
+{
+    cout<<"Page faults: "<<page_faults<<endl;
+	cout<<"Disk reads:"<<disk_reads<<endl;
+	cout<<"Disk writes: "<<disk_writes<<endl;
+}
 
 //save data and protection bits into disk, if use_disk is true..
-void unload_page(Page_Table *pt, int page, int* old_frame, int* old_bits) {
+void Page_Replacement::unload_page(Page_Table *pt, int page, int* old_frame, int* old_bits) {
     if (disk == nullptr) 
     {
         cout<<"clearing page "<<page<<endl; 
@@ -47,7 +42,7 @@ void unload_page(Page_Table *pt, int page, int* old_frame, int* old_bits) {
 
 
 //load data and protection bits from disk
-void load_page(Page_Table *pt, int page, int frame_to_use) {
+void Page_Replacement::load_page(Page_Table *pt, int page, int frame_to_use) {
     if (disk == nullptr) 
     {
         cout<<"mapping page "<<page<<" to frame "<<frame_to_use<<endl; 
@@ -68,7 +63,7 @@ void load_page(Page_Table *pt, int page, int frame_to_use) {
 // this is the page fault handler, it runs when the system tries to use a page that is not in memory
 void Page_Replacement::page_fault_handler(Page_Table *pt, int page)
 {    
-    if(disk == nullptr && use_disk)//start disk with not started yet and use disk
+    if(disk == nullptr)//start disk with not started yet and use disk
     {
         cout << "initializing disk..." << endl;
         disk = new Disk("myvirtualdisk", pt->page_table_get_npages()); // open the current disk

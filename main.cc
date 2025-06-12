@@ -15,12 +15,11 @@ int main(int argc, char *argv[])
 	int nframes = atoi(argv[2]);
 	const char *program = argv[4];
 
-	algorithm = (argv[3]);
-
 	Disk disk("myvirtualdisk", npages);
     Program my_program;
 
-    Page_Table pt(npages, nframes, Page_Replacement::page_fault_handler);
+	Page_Replacement page_fault_manager(argv[3], disk);
+    Page_Table pt(npages, nframes, page_fault_manager.page_fault_handler);
 	
 	unsigned char *virtmem = (unsigned char *) pt.page_table_get_virtmem();
 	
@@ -43,10 +42,6 @@ int main(int argc, char *argv[])
 
     pt.page_table_delete();
 	disk.close_disk();
-
-	cout<<"Page faults: "<<page_faults<<endl;
-	cout<<"Disk reads:"<<disk_reads<<endl;
-	cout<<"Disk writes: "<<disk_writes<<endl;
 
 	return 0;
 }
