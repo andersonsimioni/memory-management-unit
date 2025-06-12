@@ -49,11 +49,6 @@ public:
 
     void page_replacement_delete();
 
-    ~Page_Replacement()
-    {
-        get_instance()->page_replacement_delete();   
-    }
-
     Page_Replacement(const char* algorithm, Disk* disk)
     {
         if(singleton_instance != nullptr) throw std::runtime_error("Page_Replacement already instanced!");

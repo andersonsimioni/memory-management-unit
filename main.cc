@@ -45,6 +45,8 @@ int main(int argc, char *argv[])
 
     pt.page_table_delete();
 	disk.close_disk();
+	
+	page_fault_manager.get_instance()->page_replacement_delete();
 
 	return 0;
 }
