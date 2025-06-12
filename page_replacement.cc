@@ -22,16 +22,13 @@ void Page_Replacement::print_statistics()
 
 //save data and protection bits into disk, if use_disk is true..
 void Page_Replacement::unload_page(Page_Table *pt, int page, int* old_frame, int* old_bits) {
-    if (disk == nullptr) 
-    {
-        cout<<"clearing page "<<page<<endl; 
-        pt->page_table_get_entry(page, old_frame, old_bits); 
-        pt->page_table_set_entry(page, *old_frame, 0); 
-        return; 
-    }
-
     pt->page_table_get_entry(page, old_frame, old_bits); 
     cout<<"clearing & saving page "<<page<<" on disk , frame: "<<*old_frame<<endl;
+    if(*old_frame > pt->page_table_get_nframes())
+    {
+        pt->page_table_print();
+        throw std::runtime_error("page table returned wrong value for frame");
+    }
 
     char* physmem = (char*)pt->page_table_get_physmem();
     disk->write(page, physmem);
@@ -39,18 +36,11 @@ void Page_Replacement::unload_page(Page_Table *pt, int page, int* old_frame, int
 
     //unlink page from frame
     pt->page_table_set_entry(page, *old_frame, 0);
-    frame_free_status[*old_frame] = true;
+    frame_to_page_map[*old_frame] = -1;
 }
 
 //load data and protection bits from disk
 void Page_Replacement::load_page(Page_Table *pt, int page, int frame_to_use) {
-    if (disk == nullptr) 
-    {
-        cout<<"mapping page "<<page<<" to frame "<<frame_to_use<<endl; 
-        pt->page_table_set_entry(page, frame_to_use, PROT_READ | PROT_WRITE); 
-        return;
-    }
-    
     char* physmem = (char*)pt->page_table_get_physmem();
     disk->read(page, physmem); //1:1 -> 1 page = 1 block to simplify..
     disk_reads++;
@@ -58,7 +48,7 @@ void Page_Replacement::load_page(Page_Table *pt, int page, int frame_to_use) {
     // map page again
     cout<<"(FROM DISK) mapping page "<<page<<" to frame "<<frame_to_use<<endl;
     pt->page_table_set_entry(page, frame_to_use, PROT_READ | PROT_WRITE);
-    frame_free_status[frame_to_use] = false;
+    frame_to_page_map[frame_to_use] = page;
 }
 
 // this is the page fault handler, it runs when the system tries to use a page that is not in memory
@@ -67,18 +57,18 @@ void Page_Replacement::page_fault_handler_non_static(Page_Table *pt, int page)
     cout << "page fault on page #" << page << endl;
     page_faults++;
 
-    const int nframes = pt->page_table_get_nframes(); // how many frames we got in RAM
-    const int npages  = pt->page_table_get_npages();  // total pages the system can handle
-
-    // make sure our free status vector is the right size
-    if(frame_free_status.size() != nframes) frame_free_status.resize(nframes, true);
+    const int nframes = pt->page_table_get_nframes();
+    const int npages  = pt->page_table_get_npages();
+    if(frame_to_page_map.size() != nframes) frame_to_page_map.resize(nframes, -1);
 
     // search for a free frame
     int frame_to_use = -1;
-    for (int i = 0; i < nframes; i++) {
-        if (frame_free_status[i]) {
-            frame_to_use = i;              // found a free frame
-            frame_free_status[i] = false;  // mark it as used
+    for (int i = 0; i < nframes; i++) 
+    {
+        if (frame_to_page_map[i] == -1) 
+        {
+            frame_to_use = i;             // found a free frame
+            frame_to_page_map[i] = page;  // set page that use it
             break;
         }
     }
@@ -86,42 +76,17 @@ void Page_Replacement::page_fault_handler_non_static(Page_Table *pt, int page)
     int old_frame = -1, old_bits = -1;
     if(!strcmp(algorithm, (char*)"custom"))
     {
-        // in custom algorithm, we try to remove the page with lowest "importance"
-        // we decide importance by looking at the protection flags (read/write)
+        // in custom algorithm, we select the frame follow by (frame = page MOD nframes)
 
         if (frame_to_use == -1)
         {
             cout << "using algorithm CUSTOM to solve"<<endl;
 
-            int lowest_priority_page = -1;
-            int lowest_priority = 999;
-
-            // we go through every page in memory and calculate its priority
-            for (int p : page_list)
-            {
-                int frame, bits;
-                pt->page_table_get_entry(p, &frame, &bits);
-
-                int priority = 0;
-                if(bits == (PROT_READ | PROT_WRITE)) priority = 3; // very active page
-                else if(bits == (PROT_WRITE)) priority = 2;        // write only
-                else if(bits == (PROT_READ)) priority = 1;         // read only
-                // if no bits are set, it's probably unused, so priority stays 0
-
-                if (priority < lowest_priority){ // we try to find the lowest one
-                    lowest_priority = priority;
-                    lowest_priority_page = p;
-                }
-            }
-
-            unload_page(pt, lowest_priority_page, &old_frame, &old_bits); // backup its info
+            int frame = page % nframes;
+            unload_page(pt, frame_to_page_map[frame], &old_frame, &old_bits); // backup its info
             frame_to_use = old_frame;
-
-            // remove it from our list of current pages
-            page_list.erase(page_list.begin() + lowest_priority_page);
+            //frame_to_page_map[frame] = page;
         }
-
-        page_list.push_back(page); // add the new page we just loaded
     }
     else if(!strcmp(algorithm, (char*)"rand"))
     {
@@ -165,6 +130,7 @@ void Page_Replacement::page_fault_handler_non_static(Page_Table *pt, int page)
     }
 
     load_page(pt, page, frame_to_use);
+    cout<<"page fault fixed"<<endl;
 }
 
 Page_Replacement* Page_Replacement::get_instance()
@@ -190,7 +156,7 @@ void Page_Replacement::page_replacement_delete()
 
     while (!page_queue.empty()) page_queue.pop();
     page_list.clear();
-    frame_free_status.clear();
+    frame_to_page_map.clear();
 
     page_faults = 0;
     disk_reads = 0;

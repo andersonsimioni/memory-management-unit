@@ -29,7 +29,7 @@ private:
 
     std::queue<int> page_queue; //used for FIFO
     std::vector<int> page_list; //used for RANDOM & CUSTOM
-    std::vector<bool> frame_free_status; //set if frame are in usig
+    std::vector<int> frame_to_page_map; //used for CUSTOM
 
 public:
     /*
