@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
 	Disk disk("myvirtualdisk", npages);
     Program my_program;
 
-	Page_Replacement page_fault_manager(argv[3], disk);
+	Page_Replacement page_fault_manager(argv[3], &disk);
     Page_Table pt(npages, nframes, page_fault_manager.page_fault_handler);
 	
 	unsigned char *virtmem = (unsigned char *) pt.page_table_get_virtmem();

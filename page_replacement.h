@@ -6,6 +6,7 @@
 #include <iostream>
 
 using namespace std;
+
 class Page_Replacement
 {
 private:

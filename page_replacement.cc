@@ -63,13 +63,6 @@ void Page_Replacement::load_page(Page_Table *pt, int page, int frame_to_use) {
 // this is the page fault handler, it runs when the system tries to use a page that is not in memory
 void Page_Replacement::page_fault_handler(Page_Table *pt, int page)
 {    
-    if(disk == nullptr)//start disk with not started yet and use disk
-    {
-        cout << "initializing disk..." << endl;
-        disk = new Disk("myvirtualdisk", pt->page_table_get_npages()); // open the current disk
-        cout << "disk started successfully!" << endl;
-    }
-
     page_faults++;
     cout << "page fault on page #" << page << endl;
 
