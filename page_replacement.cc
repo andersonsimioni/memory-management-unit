@@ -20,45 +20,25 @@ void Page_Replacement::print_statistics()
 	cout<<"Disk writes: "<<disk_writes<<endl;
 }
 
-//save data and protection bits into disk, if use_disk is true..
-void Page_Replacement::unload_page(Page_Table *pt, int page, int* old_frame, int* old_bits) {
-    pt->page_table_get_entry(page, old_frame, old_bits); 
-    cout<<"clearing & saving page "<<page<<" on disk , frame: "<<*old_frame<<endl;
-    if(*old_frame > pt->page_table_get_nframes())
+void Page_Replacement::swap_page_frames(Page_Table *pt, int old_page, int new_page, int frame_to_use)
+{
+    cout<<"swapping page "<<old_page<<" for page "<<new_page<<endl;
+    int old_page_frame = -1, old_page_bits = -1;
+    pt->page_table_get_entry(old_page, &old_page_frame, &old_page_bits);
+    if(old_page_bits & PROT_WRITE)
     {
-        pt->page_table_print();
-        cout<<("page table returned wrong value for frame")<<endl;
-        abort();
+        char* physmem = (char*)pt->page_table_get_physmem();
+        disk->write(old_page, &physmem[pt->PAGE_SIZE*old_page_frame]);
+        disk_writes++;
     }
 
     char* physmem = (char*)pt->page_table_get_physmem();
-    disk->write(page, &physmem[pt->PAGE_SIZE*(*old_frame)]);
-    disk_writes++;
-
-    //unlink page from frame
-    pt->page_table_set_entry(page, 0, PROT_NONE);
-    frame_to_page_map[*old_frame] = -1;
-}
-
-//load data and protection bits from disk
-void Page_Replacement::load_page(Page_Table *pt, int page, int frame_to_use) {
-    char* physmem = (char*)pt->page_table_get_physmem();
-    disk->read(page, &physmem[pt->PAGE_SIZE*frame_to_use]); //1:1 -> 1 page = 1 block to simplify..
+    disk->read(new_page, &physmem[pt->PAGE_SIZE*old_page_frame]); //1:1 -> 1 page = 1 block to simplify..
     disk_reads++;
 
-    // map page again
-    cout<<"(FROM DISK) mapping page "<<page<<" to frame "<<frame_to_use<<endl;
-    pt->page_table_set_entry(page, frame_to_use, PROT_READ | PROT_WRITE);
-    frame_to_page_map[frame_to_use] = page;
-
-    //double check..
-    int chk_frame = -1, chk_bits = -1;
-    pt->page_table_get_entry(page, &chk_frame, &chk_bits);
-    if(chk_frame != frame_to_use)
-    {
-        cout<<"page table not respecting logic, frame_to_use: "<<frame_to_use<<", chk_frame: "<<chk_frame<<endl;
-        abort();
-    }
+    frame_to_page_map[old_page_frame] = new_page;
+    pt->page_table_set_entry(new_page, old_page_frame, PROT_READ | PROT_WRITE);
+    pt->page_table_set_entry(old_page, 0, 0);
 }
 
 // this is the page fault handler, it runs when the system tries to use a page that is not in memory
@@ -70,9 +50,12 @@ void Page_Replacement::page_fault_handler_non_static(Page_Table *pt, int page)
     cout << "page fault on page #" << page << endl;
     page_faults++;
 
+    int old_page;
     const int nframes = pt->page_table_get_nframes();
     const int npages  = pt->page_table_get_npages();
+
     if(frame_to_page_map.size() != nframes) frame_to_page_map.resize(nframes, -1);
+    if(page_list.size() != npages) page_list.resize(npages, -1);
 
     // search for a free frame
     int frame_to_use = -1;
@@ -86,55 +69,38 @@ void Page_Replacement::page_fault_handler_non_static(Page_Table *pt, int page)
         }
     }
     
-    int old_frame = -1, old_bits = -1;
     if(!strcmp(algorithm, (char*)"custom"))
     {
-        // in custom algorithm, we select the frame follow by (frame = page MOD nframes)
-
-        if (frame_to_use == -1)
+        if(frame_to_use == -1)
         {
+            // in custom algorithm, we select the frame follow by (frame = page MOD nframes
             cout << "using algorithm CUSTOM to solve"<<endl;
-
             int frame = page % nframes;
-            unload_page(pt, frame_to_page_map[frame], &old_frame, &old_bits); // backup its info
-            frame_to_use = old_frame;
-            //frame_to_page_map[frame] = page;
+            old_page = frame_to_page_map[frame];
+            frame_to_page_map[frame] = page;    
         }
     }
     else if(!strcmp(algorithm, (char*)"rand"))
     {
-        if (frame_to_use == -1)
+        if(frame_to_use == -1)
         {
             cout << "using algorithm RANDOM to solve"<<endl;
 
             // we just pick a random page and remove it
             int random_index = rand() % page_list.size();
-            int old_page = page_list[random_index];
-
-            unload_page(pt, old_page, &old_frame, &old_bits); // save the old one's info
-
-            frame_to_use = old_frame;
+            old_page = page_list[random_index];
             page_list[random_index] = page; // replace it with the new page
-        }
-        else
-        {
-            page_list.push_back(page); // if frame was free, just add the page normally
         }
     }
     else if(!strcmp(algorithm, (char*)"fifo"))
     {
-        if(frame_to_use == -1 && !page_queue.empty())
+        if(frame_to_use == -1)
         {
             cout << "using algorithm FIFO to solve"<<endl;
-
-            // remove the page that entered memory first
-            int oldest_page = page_queue.front();
+            old_page = page_queue.front();
             page_queue.pop();
-
-            unload_page(pt, oldest_page, &old_frame, &old_bits);
-            frame_to_use = old_frame;
         }
-
+        
         page_queue.push(page); // add our new page to the end of the queue
     }
     else
@@ -143,7 +109,15 @@ void Page_Replacement::page_fault_handler_non_static(Page_Table *pt, int page)
         abort();
     }
 
-    load_page(pt, page, frame_to_use);
+    if(frame_to_use == -1)
+    {
+        swap_page_frames(pt, old_page, page);
+    }
+    else
+    {
+        pt->page_table_set_entry(page, frame_to_use, PROT_READ | PROT_WRITE);
+    }
+    
     cout<<"page fault fixed"<<endl;
 }
 

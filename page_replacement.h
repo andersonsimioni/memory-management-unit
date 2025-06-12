@@ -43,6 +43,8 @@ public:
 
     void print_statistics();
 
+    void swap_page_frames(Page_Table *pt, int old_page, int new_page, int frame_to_use = -1);
+
     void unload_page(Page_Table *pt, int page, int* old_frame, int* old_bits);
 
     void load_page(Page_Table *pt, int page, int frame_to_use);
