@@ -32,18 +32,18 @@ void Page_Replacement::unload_page(Page_Table *pt, int page, int* old_frame, int
     }
 
     char* physmem = (char*)pt->page_table_get_physmem();
-    //disk->write(page, physmem);
+    disk->write(page, &physmem[pt->PAGE_SIZE*(*old_frame)]);
     disk_writes++;
 
     //unlink page from frame
-    //pt->page_table_set_entry(page, 0, PROT_NONE);
+    pt->page_table_set_entry(page, 0, PROT_NONE);
     frame_to_page_map[*old_frame] = -1;
 }
 
 //load data and protection bits from disk
 void Page_Replacement::load_page(Page_Table *pt, int page, int frame_to_use) {
     char* physmem = (char*)pt->page_table_get_physmem();
-    //disk->read(page, physmem); //1:1 -> 1 page = 1 block to simplify..
+    disk->read(page, &physmem[pt->PAGE_SIZE*frame_to_use]); //1:1 -> 1 page = 1 block to simplify..
     disk_reads++;
 
     // map page again
@@ -64,7 +64,7 @@ void Page_Replacement::load_page(Page_Table *pt, int page, int frame_to_use) {
 // this is the page fault handler, it runs when the system tries to use a page that is not in memory
 void Page_Replacement::page_fault_handler_non_static(Page_Table *pt, int page)
 {    
-    //pt->page_table_print();
+    pt->page_table_print();
     //abort();
 
     cout << "page fault on page #" << page << endl;
