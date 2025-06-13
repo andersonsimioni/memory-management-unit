@@ -10,14 +10,22 @@ int main(int argc, char *argv[])
 		printf("use: virtmem <npages> <nframes> <rand|fifo|custom> <alpha|beta|gamma|delta>\n");
 		return 1;
 	}
-
+	
 	int npages = atoi(argv[1]);
 	int nframes = atoi(argv[2]);
+	const char *algorithm = argv[3];
 	const char *program = argv[4];
+	cout<<strlen(algorithm)<<endl;
+	if(npages <=0 || nframes <= 0)
+	{
+		cout<<"invalid npages or nframes"<<endl;
+		abort();
+	}
 
 	Disk disk("myvirtualdisk", npages);
     Program my_program;
-
+	
+	Page_Replacement page_fault_manager(algorithm, &disk);
     Page_Table pt(npages, nframes, Page_Replacement::page_fault_handler);
 	
 	unsigned char *virtmem = (unsigned char *) pt.page_table_get_virtmem();
@@ -41,5 +49,9 @@ int main(int argc, char *argv[])
 
     pt.page_table_delete();
 	disk.close_disk();
+
+	page_fault_manager.print_statistics();
+	page_fault_manager.get_instance()->page_replacement_delete();
+
 	return 0;
 }
