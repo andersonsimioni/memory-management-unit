@@ -32,8 +32,8 @@ Page_Table::Page_Table(int npages, int nframes, Page_Table::page_fault_handler_t
 	this->virtmem = (char *) mmap(0, npages * PAGE_SIZE, PROT_NONE, MAP_SHARED | MAP_NORESERVE, fd, 0);
 	this->npages = npages;
 
-	this->page_bits = new int[npages];
-	this->page_mapping = new int[npages];
+	this->page_bits = new int(sizeof(int) * npages);
+	this->page_mapping = new int(sizeof(int) * npages);
 
 	this->handler = handler;
 

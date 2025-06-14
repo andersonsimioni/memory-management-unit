@@ -1,160 +1,78 @@
-#include "disk.h"
 #include "page_replacement.h"
+#include <string.h> 
 
-#include <vector>
-#include <queue>
-#include <cstring>
-#include <cassert>
-#include <list>
-#include <cstdlib>
-#include <ctime>
-#include <stdlib.h>
-#include <unordered_map>
+/*
+ * This this the method called when a page fault occurs. Your work begins here!
+ */
 
-Page_Replacement* Page_Replacement::singleton_instance = nullptr;
+std::string Page_Replacement::algorithm = "";
+vector<bool> Page_Replacement::frame_free;
+int Page_Replacement::nframes = 0;
+int Page_Replacement::npages = 0;
 
-void Page_Replacement::print_statistics()
+void Page_Replacement::page_fault_handler(Page_Table *pt, int page )
 {
-    cout<<"Page faults: "<<page_faults<<endl;
-	cout<<"Disk reads:"<<disk_reads<<endl;
-	cout<<"Disk writes: "<<disk_writes<<endl;
-}
-
-void Page_Replacement::swap_page_frames(Page_Table *pt, int old_page, int new_page, int frame_to_use)
-{
-    cout<<"swapping page "<<old_page<<" for page "<<new_page<<endl;
-    int old_page_frame = -1, old_page_bits = -1;
-    pt->page_table_get_entry(old_page, &old_page_frame, &old_page_bits);
-    if(old_page_bits & PROT_WRITE)
-    {
-        char* physmem = (char*)pt->page_table_get_physmem();
-        disk->write(old_page, &physmem[pt->PAGE_SIZE*old_page_frame]);
-        disk_writes++;
-    }
-
-    char* physmem = (char*)pt->page_table_get_physmem();
-    disk->read(new_page, &physmem[pt->PAGE_SIZE*old_page_frame]); //1:1 -> 1 page = 1 block to simplify..
-    disk_reads++;
-
-    frame_to_page_map[old_page_frame] = new_page;
-    pt->page_table_set_entry(new_page, old_page_frame, PROT_READ);
-    pt->page_table_set_entry(old_page, 0, 0);
-}
-
-// this is the page fault handler, it runs when the system tries to use a page that is not in memory
-void Page_Replacement::page_fault_handler_non_static(Page_Table *pt, int page)
-{    
-    page_faults++;
     cout << "page fault on page #" << page << endl;
-    
-    int old_page;
-    const int nframes = pt->page_table_get_nframes();
-    const int npages  = pt->page_table_get_npages();
 
-    if(frame_to_page_map.size() != nframes) frame_to_page_map.resize(nframes, -1);
-    if(page_list.size() != npages) page_list.resize(npages, -1);
+    static bool initialized = false;
+    if (!initialized) {
+        cout<<"inicializado!" << endl;
+        nframes = pt->page_table_get_nframes();
+        npages = pt->page_table_get_npages();
+        frame_free.resize(nframes, true);  // todos os frames estão livres inicialmente
+        initialized = true;
+        return;
 
-    for (int i = 0; i < frame_to_page_map.size(); i++)
-    {
-        if(frame_to_page_map[i] == page)
-        {
-            cout<<"frame already mapped, adding PROT_WRITE.."<<endl;
-            int aux_frame, aux_bits;
-            pt->page_table_get_entry(page, &aux_frame, &aux_bits);
-            pt->page_table_set_entry(page, aux_frame, PROT_READ | PROT_WRITE);
-            return;
+    }
+
+    //1 passo: checar se a página estava fora da page table
+    int frame, bits;
+    pt->page_table_get_entry(page, &frame, &bits);
+    if (bits == 0) {  // bits == 0 → página não foi mapeada
+        cout<<"página de fora da page table"<<endl;
+    }
+
+    //CASO ESPECIAL: Página já mapeada e em frame, passar de leitura para escrita
+    if (bits & PROT_READ) {
+        // Falta de permissão de escrita: adicionar PROT_WRITE
+        pt->page_table_set_entry(page, frame, PROT_READ | PROT_WRITE);
+        return;
+    }
+
+    //2 passo: Verifica se existe frame livre
+    int frame_index = -1;
+    for (int i = 0; i < nframes; ++i) {
+        if (frame_free[i]) {
+            frame_index = i;
+                break;
         }
     }
-    
 
-    // search for a free frame
-    int frame_to_use = -1;
-    for (int i = 0; i < nframes; i++) 
-    {
-        if (frame_to_page_map[i] == -1) 
-        {
-            frame_to_use = i;             // found a free frame
-            frame_to_page_map[i] = page;  // set page that use it
-            break;
+    //3 passo: se frame index = pos, insere página na posição e atualiza page table senão, precisa substituir
+    if (frame_index != -1){
+        frame_free[frame_index] = false; //marca como ocupado
+        //lê página do disco
+        //insere no frame pos
+        pt->page_table_set_entry(page, frame_index, PROT_READ); //atualiza página na page table
+        cout<<"Entrou aqui!"<<endl;
+        cout << "Página " << page << " mapeada no frame " << frame_index << endl;
+        pt -> page_table_print_entry(page);
+        return;
+    } else {
+        cout << "Sem frame livre, deve aplicar algoritmo de substituição" << endl;
+        /*
+        if (//se algoritmo == fifo){
+            cout << "SELECIONADO: FIFO" << endl;
+            //logica do fifo...
         }
-    }
-    
-    if(!strcmp(algorithm, (char*)"custom"))
-    {
-        if(frame_to_use == -1)
-        {
-            // in custom algorithm, we select the frame follow by (frame = page MOD nframes
-            cout << "using algorithm CUSTOM to solve"<<endl;
-            int frame = page % nframes;
-            old_page = frame_to_page_map[frame];
-            frame_to_page_map[frame] = page;    
+        if (//se algoritmo == rand) == 0){
+            cout << "SELECIONADO: RAND" << endl;
+            //logica do rand...
         }
-    }
-    else if(!strcmp(algorithm, (char*)"rand"))
-    {
-        if(frame_to_use == -1)
-        {
-            cout << "using algorithm RANDOM to solve"<<endl;
-
-            // we just pick a random page and remove it
-            int random_index = rand() % page_list.size();
-            old_page = page_list[random_index];
-            page_list[random_index] = page; // replace it with the new page
+        if (//se algoritmo == custom) == 0){
+            cout << "SELECIONADO: CUSTOM" << endl;
+            //lógica do custom...
         }
+        */
     }
-    else if(!strcmp(algorithm, (char*)"fifo"))
-    {
-        if(frame_to_use == -1)
-        {
-            cout << "using algorithm FIFO to solve"<<endl;
-            old_page = page_queue.front();
-            page_queue.pop();
-        }
-        
-        page_queue.push(page); // add our new page to the end of the queue
-    }
-    else
-    {
-        cout<<"invalid algorithm"<<endl;
-        abort();
-    }
-
-    if(frame_to_use == -1) swap_page_frames(pt, old_page, page);
-    else pt->page_table_set_entry(page, frame_to_use, PROT_READ);
-    
-    cout<<"page fault fixed"<<endl;
-}
-
-Page_Replacement* Page_Replacement::get_instance()
-{
-    return Page_Replacement::singleton_instance;
-}
-
-void Page_Replacement::page_fault_handler(Page_Table *pt, int page)
-{
-    Page_Replacement* instance = Page_Replacement::get_instance();
-    instance->page_fault_handler_non_static(pt, page);
-}
-
-void Page_Replacement::page_replacement_delete()
-{    
-    std::cout<<"clearing memory.."<<endl;
-
-    if (this->algorithm != nullptr) 
-    {
-        delete[] this->algorithm;
-        this->algorithm = nullptr;
-    }
-
-    while (!page_queue.empty()) page_queue.pop();
-    page_list.clear();
-    frame_to_page_map.clear();
-
-    page_faults = 0;
-    disk_reads = 0;
-    disk_writes = 0;
-
-    singleton_instance = nullptr;
-
-    cout<<"memory clean with success"<<endl;
 }
